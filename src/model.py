@@ -1,11 +1,9 @@
 from pathlib import Path
 
-import joblib
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder
 
 FEATURES = [
     "study_hours",
@@ -44,11 +42,15 @@ def train_model(data: pd.DataFrame) -> Pipeline:
 
 
 def save_model(model: Pipeline, path: str | Path) -> None:
+    import joblib
+
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(model, path, compress=3)
 
 
 def load_model(path: str | Path) -> Pipeline:
+    import joblib
+
     return joblib.load(path)
 
 
