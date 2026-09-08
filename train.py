@@ -1,8 +1,7 @@
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_absolute_error, r2_score
 
 from src.model import FEATURES, TARGET, save_model, train_model
 
@@ -12,13 +11,25 @@ MODEL_PATH = Path("models/student_grade_model.joblib")
 
 def main() -> None:
     data = pd.read_csv(DATA_PATH)
-    train_df, test_df = train_test_split(data, test_size=0.2, random_state=42)
+
+    rng = np.random.default_rng(42)
+    indices = rng.permutation(len(data))
+    test_size = max(1, int(round(len(data) * 0.2)))
+    test_indices = indices[:test_size]
+    train_indices = indices[test_size:]
+
+    train_df = data.iloc[train_indices]
+    test_df = data.iloc[test_indices]
 
     model = train_model(train_df)
     predictions = model.predict(test_df[FEATURES])
+    actual = test_df[TARGET].to_numpy(dtype=float)
 
-    mae = mean_absolute_error(test_df[TARGET], predictions)
-    r2 = r2_score(test_df[TARGET], predictions)
+    mae = float(np.mean(np.abs(actual - predictions)))
+    ss_res = float(np.sum((actual - predictions) ** 2))
+    ss_tot = float(np.sum((actual - np.mean(actual)) ** 2))
+    r2 = 1.0 - (ss_res / ss_tot) if ss_tot else 0.0
+
     print(f"MAE: {mae:.2f}")
     print(f"R2: {r2:.3f}")
 
