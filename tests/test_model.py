@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 
 from src.model import FEATURES, TARGET, predict_grade, train_model
 
@@ -29,8 +30,5 @@ def test_model_trains_and_predicts():
 
 def test_missing_column_is_rejected():
     data = sample_data().drop(columns=["attendance"])
-    try:
+    with pytest.raises(ValueError, match="attendance"):
         train_model(data)
-        assert False, "Expected ValueError"
-    except ValueError as exc:
-        assert "attendance" in str(exc)
