@@ -1,9 +1,8 @@
 from pathlib import Path
+import pickle
 
+import numpy as np
 import pandas as pd
-from sklearn.compose import ColumnTransformer
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.pipeline import Pipeline
 
 FEATURES = [
     "study_hours",
@@ -16,45 +15,42 @@ FEATURES = [
 TARGET = "final_grade"
 
 
-def build_pipeline() -> Pipeline:
-    numeric_features = FEATURES
-    preprocessor = ColumnTransformer(
-        [("num", "passthrough", numeric_features)],
-        remainder="drop",
-    )
-    model = RandomForestRegressor(
-        n_estimators=120,
-        max_depth=8,
-        min_samples_leaf=2,
-        random_state=42,
-        n_jobs=-1,
-    )
-    return Pipeline([("preprocessor", preprocessor), ("model", model)])
+class GradeModel:
+    """Small dependency-light regression model used by the Streamlit app."""
+
+    def __init__(self, coefficients: np.ndarray, intercept: float):
+        self.coefficients = np.asarray(coefficients, dtype=float)
+        self.intercept = float(intercept)
+
+    def predict(self, data: pd.DataFrame) -> np.ndarray:
+        values = data[FEATURES].to_numpy(dtype=float)
+        return values @ self.coefficients + self.intercept
 
 
-def train_model(data: pd.DataFrame) -> Pipeline:
+def train_model(data: pd.DataFrame) -> GradeModel:
     missing = set(FEATURES + [TARGET]) - set(data.columns)
     if missing:
         raise ValueError(f"Missing columns: {sorted(missing)}")
-    pipeline = build_pipeline()
-    pipeline.fit(data[FEATURES], data[TARGET])
-    return pipeline
+
+    x = data[FEATURES].to_numpy(dtype=float)
+    y = data[TARGET].to_numpy(dtype=float)
+    x_with_intercept = np.column_stack([np.ones(len(x)), x])
+    fitted = np.linalg.lstsq(x_with_intercept, y, rcond=None)[0]
+    return GradeModel(fitted[1:], fitted[0])
 
 
-def save_model(model: Pipeline, path: str | Path) -> None:
-    import joblib
-
+def save_model(model: GradeModel, path: str | Path) -> None:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
-    joblib.dump(model, path, compress=3)
+    with open(path, "wb") as file:
+        pickle.dump(model, file)
 
 
-def load_model(path: str | Path) -> Pipeline:
-    import joblib
+def load_model(path: str | Path) -> GradeModel:
+    with open(path, "rb") as file:
+        return pickle.load(file)
 
-    return joblib.load(path)
 
-
-def predict_grade(model: Pipeline, values: dict) -> float:
+def predict_grade(model: GradeModel, values: dict) -> float:
     row = pd.DataFrame([values], columns=FEATURES)
     prediction = float(model.predict(row)[0])
     return max(0.0, min(100.0, prediction))
