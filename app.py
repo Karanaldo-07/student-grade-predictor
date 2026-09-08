@@ -1,21 +1,26 @@
 from pathlib import Path
 
+import pandas as pd
 import streamlit as st
 
-from src.model import FEATURES, load_model, predict_grade
+from src.model import FEATURES, load_model, predict_grade, train_model
 
 MODEL_PATH = Path("models/student_grade_model.joblib")
+DATA_PATH = Path("data/student_grades.csv")
 
 st.set_page_config(page_title="Student Grade Predictor", page_icon="🎓", layout="centered")
 
 st.title("🎓 Student Grade Predictor")
 st.caption("A lightweight machine-learning demo for educational use.")
 
-if not MODEL_PATH.exists():
-    st.error("The trained model is not available yet. Run `python train.py` first.")
-    st.stop()
+@st.cache_resource
+def get_model():
+    if MODEL_PATH.exists():
+        return load_model(MODEL_PATH)
+    data = pd.read_csv(DATA_PATH)
+    return train_model(data)
 
-model = load_model(MODEL_PATH)
+model = get_model()
 
 with st.form("prediction_form"):
     study_hours = st.slider("Study hours per day", 0.0, 12.0, 5.0, 0.5)
@@ -47,4 +52,4 @@ if submitted:
         st.error("Estimated performance: At risk")
 
 st.divider()
-st.caption("The prediction is an estimate from the demo dataset and is not a guarantee of actual academic performance.")
+st.caption("The model trains from the included demo dataset when no saved model is present. This is an educational estimate, not a guarantee of actual academic performance.")
